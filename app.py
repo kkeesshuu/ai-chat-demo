@@ -12,7 +12,7 @@ MODEL_NAME = "glm-4-flash"
 
 # 标题
 st.title("墩墩")
-st.caption("基于智谱 GLM-4-Flash 模型驱动 | 中国电信知识库版")
+st.caption("基于智谱 GLM-4-Flash 模型驱动 | 中国电信岳阳市云溪区市场营销知识")
 
 # --- 读取 JSON 知识库 ---
 @st.cache_data
