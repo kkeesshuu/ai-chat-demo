@@ -1,78 +1,80 @@
 import streamlit as st
-from openai import OpenAI
+import json
+from zhipuai import ZhipuAI
 
-# ==========================================
-# ⚙️ 配置区域 (已自动填入你的密钥)
-# ==========================================
+# 页面配置
+st.set_page_config(page_title="墩墩", page_icon="🤖")
 
-# 1. 智谱 AI API Key (已填入)
- 
-
-# 2. 智谱 AI 的接口地址
-ZHIPU_BASE_URL = "https://open.bigmodel.cn/api/paas/v4"
-import streamlit as st
+# 初始化客户端
 ZHIPU_API_KEY = st.secrets["ZHIPUAI_API_KEY"]
-# 3. 使用的免费模型名称 (GLM-4-Flash 目前免费且速度快)
+client = ZhipuAI(api_key=ZHIPU_API_KEY)
 MODEL_NAME = "glm-4-flash"
 
-# ==========================================
-# 🎨 界面设置
-# ==========================================
-st.set_page_config(page_title="墩墩", page_icon="🤖")
-st.title("🤖 墩墩")
-st.caption("基于智谱 GLM-4-Flash 模型驱动 | 永久免费额度")
+# 标题
+st.title("墩墩")
+st.caption("基于智谱 GLM-4-Flash 模型驱动 | 中国电信知识库版")
 
-# ==========================================
-# 💬 聊天逻辑
-# ==========================================
+# --- 读取 JSON 知识库 ---
+@st.cache_data
+def load_knowledge_base():
+    try:
+        # 【注意】请把下面的 '你的文件名.json' 改成你上传的真实文件名
+        with open("你的文件名.json", "r", encoding="utf-8") as f:
+            data = json.load(f)
+        return data
+    except Exception as e:
+        st.error(f"读取知识库失败: {e}")
+        return None
 
-# 初始化会话状态
+knowledge_data = load_knowledge_base()
+
+# 显示知识库加载状态
+if knowledge_data:
+    st.success("✅ 知识库已加载")
+else:
+    st.warning("⚠️ 知识库未加载，请检查文件名")
+
+# --- 对话逻辑 ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# 显示历史聊天记录
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# 处理用户输入
-if prompt := st.chat_input("请输入你的问题..."):
-    # 1. 显示用户消息
+if prompt := st.chat_input("请输入关于电信的问题..."):
+    st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
+
+    # 构建包含知识库的提示词
+    system_prompt = "你是一个中国电信的知识助手。请根据以下参考资料回答用户问题。如果资料里没有相关信息，请礼貌告知用户。"
     
-    # 2. 将用户消息加入历史
-    st.session_state.messages.append({"role": "user", "content": prompt})
+    # 将JSON数据转为字符串作为背景知识
+    context = ""
+    if knowledge_data:
+        context = json.dumps(knowledge_data, ensure_ascii=False)
+    
+    full_prompt = f"{system_prompt}\n\n参考资料：\n{context}\n\n用户问题：{prompt}"
 
-    # 3. 调用 AI 模型
-    try:
-        client = OpenAI(
-            api_key=ZHIPU_API_KEY,
-            base_url=ZHIPU_BASE_URL
-        )
-
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
-            full_response = ""
-            
-            # 发送请求给智谱 AI
-            stream = client.chat.completions.create(
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+        full_response = ""
+        
+        try:
+            response = client.chat.completions.create(
                 model=MODEL_NAME,
-                messages=[{"role": m["role"], "content": m["content"]} for m in st.session_state.messages],
+                messages=[{"role": "user", "content": full_prompt}],
                 stream=True
             )
             
-            # 逐字显示回复（打字机效果）
-            for chunk in stream:
-                if chunk.choices[0].delta.content is not None:
+            for chunk in response:
+                if chunk.choices[0].delta.content:
                     full_response += chunk.choices[0].delta.content
                     message_placeholder.markdown(full_response + "▌")
             
             message_placeholder.markdown(full_response)
-        
-        # 4. 将 AI 回复加入历史
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
-
-    except Exception as e:
-        st.error(f"出错了：{str(e)}")
-        st.info("提示：请检查密钥是否正确，或网络是否通畅。")
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+            
+        except Exception as e:
+            st.error(f"生成回答失败: {e}")
