@@ -19,7 +19,7 @@ st.caption("基于智谱 GLM-4-Flash 模型驱动 | 中国电信知识库版")
 def load_knowledge_base():
     try:
         # 【注意】请把下面的 '你的文件名.json' 改成你上传的真实文件名
-        with open("你的文件名.json", "r", encoding="utf-8") as f:
+        with open("qa_data.json", "r", encoding="utf-8") as f:
             data = json.load(f)
         return data
     except Exception as e:
