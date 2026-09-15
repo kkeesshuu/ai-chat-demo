@@ -1,2 +1,2 @@
 streamlit
-zhipuai
+zhipuai==2.0.0
